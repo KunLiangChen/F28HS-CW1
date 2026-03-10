@@ -8,22 +8,41 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The RGB values of a pixel. */
+/* The RGB values of a pixel.
+ * As our image is HQ8, the pixel is stored by unsigne 8-bit values
+ * we can use a much smaller data formatl.
+ *  */
 struct Pixel {
-    int red;
-    int green;
-    int blue;
+    unsigned char red;
+    unsigned char green;
+    unsigned char blue;
 };
 
 /* An image loaded from a file. */
 struct Image {
     /* TODO: Question 2 */
+    int height;
+    int width;
+    int nvalues;
+    struct Pixel *pixels;
 };
 
 /* Free a struct Image */
 void free_image(struct Image *img)
 {
     /* TODO: Question 3a */
+    /* Avoid the null pointer */
+    if(img == NULL){
+        return;
+    }
+    /* Free the pixels of the image
+     * Declare as the pointer as null to avoid operate a pointer which is free.
+     *  */
+    free(img->pixels);
+    img->data = NULL;
+    
+    /* Free the image itself */
+    free(img);
 }
 
 /* Opens and reads an image file, returning a pointer to a new struct Image.
