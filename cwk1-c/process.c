@@ -60,12 +60,12 @@ struct Image *load_image(const char *filename)
     /* Allocate the Image object, and read the image from the file */
     /* TODO: Question 3b */
     struct Image *img = NULL;
-    const char *image_type; 
-    const char *image_type_t = "HQ8";
+    const char image_type[4]; 
+    const char image_type_t[] = "HQ8";
     int height, width, nvalues;
     img = malloc(sizeof(struct Image));
-    fscanf(f, "%s %d %d %d",image_type, &height, &width, &nvalues);
-    if(!strcmp(image_type,image_type_t) || nvalues != 3)
+    fscanf(f, "%3s %d %d %d",image_type, &width, &height, &nvalues);
+    if( strcmp(image_type,image_type_t) != 0 || nvalues != 3)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
         return NULL;
@@ -73,7 +73,7 @@ struct Image *load_image(const char *filename)
     img->height = height;
     img->width = width;
     img->nvalues = nvalues;
-    img->pixels = malloc(sizeof(struct Pixel)* height * width);
+    img->pixels = calloc(sizeof(struct Pixel)* height * width); //allocate the memory for Pixels
     
     /* Close the file */
     fclose(f);
