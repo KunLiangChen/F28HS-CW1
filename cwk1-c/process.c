@@ -33,13 +33,14 @@ void free_image(struct Image *img)
     /* TODO: Question 3a */
     /* Avoid the null pointer */
     if(img == NULL){
+        fprintf(stderr, "Image is null.");
         return;
     }
     /* Free the pixels of the image
      * Declare as the pointer as null to avoid operate a pointer which is free.
      *  */
     free(img->pixels);
-    img->data = NULL;
+    img->pixels = NULL;
     
     /* Free the image itself */
     free(img);
@@ -59,7 +60,21 @@ struct Image *load_image(const char *filename)
     /* Allocate the Image object, and read the image from the file */
     /* TODO: Question 3b */
     struct Image *img = NULL;
-
+    const char *image_type; 
+    const char *image_type_t = "HQ8";
+    int height, width, nvalues;
+    img = malloc(sizeof(struct Image));
+    fscanf(f, "%s %d %d %d",image_type, &height, &width, &nvalues);
+    if(!strcmp(image_type,image_type_t) || nvalues != 3)
+    {
+        fprintf(stderr, "File %s is an invalid image\n", filename);
+        return NULL;
+        }
+    img->height = height;
+    img->width = width;
+    img->nvalues = nvalues;
+    img->pixels = malloc(sizeof(struct Pixel)* height * width);
+    
     /* Close the file */
     fclose(f);
 
