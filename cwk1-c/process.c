@@ -73,8 +73,15 @@ struct Image *load_image(const char *filename)
     img->height = height;
     img->width = width;
     img->nvalues = nvalues;
-    img->pixels = calloc(sizeof(struct Pixel)* height * width); //allocate the memory for Pixels
-    
+    img->pixels = calloc(height * width, sizeof(struct Pixel)); //allocate the memory for Pixels
+    fgetc(f);//skip the tab
+    /*
+     * Read the content of the image, check whether there is content lost.
+     * */
+    if(fread(img->pixels,sizeof(struct Pixel),width*height,f)!=(size_t)(width*height))
+    {
+        fprintf(stderr,"Error: Failed to read binary image data\n");
+        }
     /* Close the file */
     fclose(f);
 
