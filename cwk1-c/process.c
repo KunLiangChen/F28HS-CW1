@@ -27,6 +27,21 @@ struct Image {
     struct Pixel *pixels;
 };
 
+/*Helper func: give head value to struct image*/
+void assign_head(struct Image *img,int width, int height, int nvalues)
+{
+    img->height = height;
+    img->width = width;
+    img->nvalues = nvalues;
+    }
+    
+/*Helper func: Check whether the image valid(include Null ptr, nvalues, pixels)*/
+bool img_valid(struct Image *img)
+{
+    if(img == NULL || img->pixels == NULL || img->nvalues != 3) return false;
+    return true;
+    }
+
 /* Free a struct Image */
 void free_image(struct Image *img)
 {
@@ -61,19 +76,22 @@ struct Image *load_image(const char *filename)
     /* TODO: Question 3b */
     struct Image *img = NULL;
     const char image_type[4]; 
-    const char image_type_t[] = "HQ8";
     int height, width, nvalues;
     img = malloc(sizeof(struct Image));
+    if(img == NULL) return NULL;
     fscanf(f, "%3s %d %d %d",image_type, &width, &height, &nvalues);
-    if( strcmp(image_type,image_type_t) != 0 || nvalues != 3)
+    if( strcmp(image_type,"HQ8") != 0 || nvalues != 3)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
         return NULL;
         }
-    img->height = height;
-    img->width = width;
-    img->nvalues = nvalues;
-    img->pixels = calloc(height * width, sizeof(struct Pixel)); //allocate the memory for Pixels
+    assign_head(img, width, height, nvalues);
+    img->pixels = calloc(height * width, sizeof(struct Pixel)); //allocate the memory for Pixels, make sure it is allocated
+    if(img->pixels == NULL)
+    {
+        free_image(img);
+        return NULL;
+        }
     fgetc(f);//skip the tab
     /*
      * Read the content of the image, check whether there is content lost.
@@ -97,7 +115,28 @@ struct Image *load_image(const char *filename)
 bool save_image(const struct Image *img, const char *filename)
 {
     /* TODO: Question 3c */
-    return false;
+    FILE *f = fopen(filename, "w");
+    if (f == NULL) {
+        fprintf(stderr, "File to be saved %s could not be opened.\n", filename);
+        return false;
+    }
+    if(!img_valid(img)) return false;
+    
+    if(fprintf(f, "HQ8 %d %d %d\n", img->width, img->height, img->nvalues) < 0)
+    {
+        fprintf(stderr, "Fail to write the file\n");
+        return false;
+        }
+        
+    size_t total_pixels = (size_t)(img->width * img->height);
+    size_t written = fwrite(img->pixels, sizeof(struct Pixel), total_pixels, f);
+    if(written < total_pixels)
+    {
+        fprintf(stderr,"Fail while writting the pixels, write %zu/%zu pixels\n", written, total_pixels);
+        return false;       
+                }
+    fclose(f);
+    return true;
 }
 
 /* Allocate a new struct Image and copy an existing struct Image's contents
@@ -105,6 +144,16 @@ bool save_image(const struct Image *img, const char *filename)
 struct Image *copy_image(const struct Image *source)
 {
     /* TODO: Question 3d */
+    struct Image *copy = malloc(sizeof(struct Image));
+    if(copy == NULL) return NULL;
+    assign_head(copy, source->width, source->height, source->nvalues);
+    copy->pixels = calloc(height * width, sizeof(struct Pixel));
+    if(copy->pixels == NULL)
+    {
+        free_image(copy);
+        return NULL;
+        }
+    strcpy(copy,source);
     return NULL;
 }
 
@@ -143,33 +192,34 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Apply the first process to the input image */
-    /* TODO: Change the function name and arguments to match your task. */
-    struct Image *out_img = apply_BLUR(in_img);
-    if (out_img == NULL) {
-        fprintf(stderr, "First process failed.\n");
-        free_image(in_img);
-        return 1;
-    }
 
-    /* Apply the second process to the output of the first process */
-    /* TODO: Change the function name and arguments to match your task. */
-    if (!apply_NORM(out_img)) {
-        fprintf(stderr, "Second process failed.\n");
-        free_image(in_img);
-        free_image(out_img);
-        return 1;
-    }
+   /* Apply the first process to the input image */
+   /* TODO: Change the function name and arguments to match your task. */
+   struct Image *out_img = apply_BLUR(in_img);
+   if (out_img == NULL) {
+       fprintf(stderr, "First process failed.\n");
+       free_image(in_img);
+       return 1;
+   }
 
-    /* Save the output image */
-    if (!save_image(out_img, argv[2])) {
-        fprintf(stderr, "Saving image to %s failed.\n", argv[2]);
-        free_image(in_img);
-        free_image(out_img);
-        return 1;
-    }
+   /* Apply the second process to the output of the first process */
+   /* TODO: Change the function name and arguments to match your task. */
+   if (!apply_NORM(out_img)) {
+       fprintf(stderr, "Second process failed.\n");
+       free_image(in_img);
+       free_image(out_img);
+       return 1;
+   }
 
-    free_image(in_img);
-    free_image(out_img);
-    return 0;
+   /* Save the output image */
+   if (!save_image(out_img, argv[2])) {
+       fprintf(stderr, "Saving image to %s failed.\n", argv[2]);
+       free_image(in_img);
+       free_image(out_img);
+       return 1;
+   }
+
+   free_image(in_img);
+   free_image(out_img);
+   return 0;
 }
