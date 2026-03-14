@@ -24,7 +24,7 @@ struct Image {
     int height;
     int width;
     int nvalues;
-    struct Pixel *pixels;
+    struct Pixel *pixels;//image matrix
 };
 
 /*Helper func: give head value to struct image*/
@@ -35,8 +35,14 @@ void assign_head(struct Image *img,int width, int height, int nvalues)
     img->nvalues = nvalues;
     }
     
+/*Helper func: compare the uchar */
+int compare_uchar(const void *a, const void *b)
+{
+    return(*(unsigned char *)a - *(unsigned char *)b);
+    }    
+
 /*Helper func: Check whether the image valid(include Null ptr, nvalues, pixels)*/
-bool img_valid(struct Image *img)
+bool img_valid(const struct Image *img)
 {
     if(img == NULL || img->pixels == NULL || img->nvalues != 3) return false;
     return true;
@@ -147,13 +153,14 @@ struct Image *copy_image(const struct Image *source)
     struct Image *copy = malloc(sizeof(struct Image));
     if(copy == NULL) return NULL;
     assign_head(copy, source->width, source->height, source->nvalues);
-    copy->pixels = calloc(height * width, sizeof(struct Pixel));
+    copy->pixels = calloc(source->height * source->width, sizeof(struct Pixel));
     if(copy->pixels == NULL)
     {
         free_image(copy);
         return NULL;
         }
-    strcpy(copy,source);
+    size_t total_pixels = (size_t)(source->width * source->height);
+    memcpy(copy->pixels, source->pixels, total_pixels);
     return NULL;
 }
 
@@ -161,10 +168,48 @@ struct Image *copy_image(const struct Image *source)
  * (TODO: Write a better comment here, and rename the function.
  * You may need to add or change arguments depending on the task.)
  * Returns a new struct Image containing the result, or NULL on error. */
-struct Image *apply_BLUR(const struct Image *source)
+struct Image *apply_MEDIAN(const struct Image *source)
 {
     /* TODO: Question 4 */
-    return NULL;
+    if(!img_valid(source))  return NULL;
+    struct Image *img = copy_image(source);
+    if(!img_valid(img)) return NULL;
+    for(int y = 0; y < source->height; y++)
+    {
+        for(int x = 0; x < source->width; x++)
+        {
+            unsigned char r_values[9], g_values[9], b_values[9];
+            int count = 0;
+            
+            //Visit adjacent windows, collect the values.
+            for(int dy = -1; dy<=1; dy++)
+            {
+                for(int dx=-1; dx<=1; dx++)
+                {
+                    int ny = y+dy;
+                    int nx = x+dx;
+                    if(ny>=0 && ny<source->height && nx>=0 && nx<source->width)
+                    {// Not out the bound
+                        struct Pixel p = source->pixels[ny * source->width + nx];
+                        r_values[count] = p.red;
+                        g_values[count] = p.green;
+                        b_values[count] = p.blue;
+                        count++;
+                        }
+                    }
+                }
+            //Sort the value in the window
+            qsort(r_values, count , sizeof(unsigned char), compare_uchar);
+            qsort(g_values, count , sizeof(unsigned char), compare_uchar);
+            qsort(b_values, count , sizeof(unsigned char), compare_uchar);
+            
+            int target_idx = y*img->width + x;
+            img->pixels[target_idx].red = r_values[count/2];
+            img->pixels[target_idx].green = g_values[count/2];
+            img->pixels[target_idx].blue = b_values[count/2];
+            }
+        }
+    return img;
 }
 
 /* Perform your second task.
@@ -195,7 +240,7 @@ int main(int argc, char *argv[])
 
    /* Apply the first process to the input image */
    /* TODO: Change the function name and arguments to match your task. */
-   struct Image *out_img = apply_BLUR(in_img);
+   struct Image *out_img = apply_MEDIAN(in_img);
    if (out_img == NULL) {
        fprintf(stderr, "First process failed.\n");
        free_image(in_img);
