@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -88,7 +89,28 @@ int main(int argc, char *argv[])
         //Light up the green
         *(gpio+10) = 0x00000C00;
         *(gpio+7) = 0x00002000;
-        sleep(2);
+        
+        int timeout_ms = 5000;
+        int elapsed_ms = 0;
+        while(elapsed_ms < timeout_ms)
+        {
+            if(*(gpio+13) & 0x00000080)
+            {
+                usleep(10000);
+                break;
+                }
+                usleep(10000);
+                elapsed_ms += 10;
+            }
+        *(gpio+10) = 0x00002000;
+        for(int i =0; i<3; i++)
+        {
+            *(gpio + 7) = 0x00000800;
+            sleep(1);
+            *(gpio + 10) = 0x00000800;
+            sleep(1);
+            }
+    
     }
     return 0;
 }
