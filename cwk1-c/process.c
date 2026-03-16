@@ -216,14 +216,41 @@ struct Image *apply_MEDIAN(const struct Image *source)
  * (TODO: Write a better comment here, and rename the function.
  * You may need to add or change arguments depending on the task.)
  * Returns true on success, or false on error. */
-bool apply_NORM(const struct Image *source)
+bool apply_NORM(struct Image *img)
 {
     /* TODO: Question 5 */
-    if(!img_valid(source)) return false;
-    struct Image *img = copy_image(source);
     if(!img_valid(img)) return false;
+    unsigned char min = 255;
+    unsigned char max = 0;
+    size_t total_pixels = (size_t)(img->width * img->height);
+    for(size_t i = 0; i < total_pixels; i++)
+    {
+        struct Pixel p = img->pixels[i];
+        if(p.red < min ) min = p.red;
+        if(p.green < min ) min = p.green;
+        if(p.blue < min ) min = p.blue;
+        
+        if(p.red > max ) max = p.red;
+        if(p.green > max ) max = p.green;
+        if(p.blue > max ) max = p.blue;
+        
+        }
+        
+    printf("Minimum value: %u\n", min);
+    printf("Maximum value:%u\n", max);
+    if(max == min) return true;
     
-    return false;
+    float scale = 255.0f / (max-min);
+    
+    for(size_t i = 0; i < total_pixels; i++)
+    {
+        img->pixels[i].red = (unsigned char)((img->pixels[i].red - min) * scale);
+        img->pixels[i].green = (unsigned char)((img->pixels[i].green - min) * scale);
+        img->pixels[i].blue = (unsigned char)((img->pixels[i].blue - min) * scale);
+        
+        }
+    
+    return true;
 }
 
 int main(int argc, char *argv[])
