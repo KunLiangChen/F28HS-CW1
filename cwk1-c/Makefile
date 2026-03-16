@@ -1,5 +1,5 @@
 # Options to pass to the C compiler
-CFLAGS = -std=c99 -O2 -Wall -pedantic -g
+CFLAGS = -std=c99 -O0 -Wall -pedantic -g
 
 # List of programs to build
 TARGETS = process

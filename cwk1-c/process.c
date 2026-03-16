@@ -161,13 +161,13 @@ struct Image *copy_image(const struct Image *source)
         }
     size_t total_pixels = (size_t)(source->width * source->height);
     memcpy(copy->pixels, source->pixels, total_pixels);
-    return NULL;
+    return copy;
 }
 
 /* Perform your first task.
- * (TODO: Write a better comment here, and rename the function.
- * You may need to add or change arguments depending on the task.)
- * Returns a new struct Image containing the result, or NULL on error. */
+ * Build a Meian window to check adjacent 9 pixels
+ * take the meddian as the value of the pixels
+ * */
 struct Image *apply_MEDIAN(const struct Image *source)
 {
     /* TODO: Question 4 */
@@ -219,6 +219,10 @@ struct Image *apply_MEDIAN(const struct Image *source)
 bool apply_NORM(const struct Image *source)
 {
     /* TODO: Question 5 */
+    if(!img_valid(source)) return false;
+    struct Image *img = copy_image(source);
+    if(!img_valid(img)) return false;
+    
     return false;
 }
 
