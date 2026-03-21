@@ -160,7 +160,7 @@ struct Image *copy_image(const struct Image *source)
         return NULL;
         }
     size_t total_pixels = (size_t)(source->width * source->height);
-    memcpy(copy->pixels, source->pixels, total_pixels);
+    memcpy(copy->pixels, source->pixels, total_pixels * sizeof(struct Pixel));
     return copy;
 }
 
