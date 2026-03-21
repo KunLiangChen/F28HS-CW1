@@ -81,7 +81,7 @@ struct Image *load_image(const char *filename)
     /* Allocate the Image object, and read the image from the file */
     /* TODO: Question 3b */
     struct Image *img = NULL;
-    const char image_type[4]; 
+    char image_type[4]; 
     int height, width, nvalues;
     img = malloc(sizeof(struct Image));
     if(img == NULL) return NULL;
@@ -89,6 +89,8 @@ struct Image *load_image(const char *filename)
     if( strcmp(image_type,"HQ8") != 0 || nvalues != 3)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
+        free_image(img);
+        fclose(f);
         return NULL;
         }
     assign_head(img, width, height, nvalues);
@@ -96,6 +98,7 @@ struct Image *load_image(const char *filename)
     if(img->pixels == NULL)
     {
         free_image(img);
+        fclose(f);
         return NULL;
         }
     fgetc(f);//skip the tab
@@ -105,14 +108,12 @@ struct Image *load_image(const char *filename)
     if(fread(img->pixels,sizeof(struct Pixel),width*height,f)!=(size_t)(width*height))
     {
         fprintf(stderr,"Error: Failed to read binary image data\n");
+        fclose(f);
+        free_image(img);
         }
     /* Close the file */
     fclose(f);
 
-    if (img == NULL) {
-        fprintf(stderr, "File %s could not be read.\n", filename);
-        return NULL;
-    }
 
     return img;
 }
@@ -253,6 +254,48 @@ bool apply_NORM(struct Image *img)
     return true;
 }
 
+#if 0
+int main(int argc, char *argv[])
+{
+    printf("Running Quick Median Test...\n");
+
+
+    struct Image *input = malloc(sizeof(struct Image));
+    input->width = 3;
+    input->height = 3;
+    input->nvalues = 3;
+    input->pixels = calloc(9, sizeof(struct Pixel)); 
+
+
+    int center = 1 * 3 + 1; 
+    input->pixels[center].red = 255;
+    input->pixels[center].green = 255;
+    input->pixels[center].blue = 255;
+
+    printf("Original Center Pixel: RGB(%u, %u, %u)\n", 
+           input->pixels[center].red, input->pixels[center].green, input->pixels[center].blue);
+
+
+    struct Image *output = apply_MEDIAN(input);
+
+
+    // 对于 3x3 窗口，排序后 0 占 8 个，255 占 1 个，中值必须是 0
+    unsigned char res_r = output->pixels[center].red;
+    printf("Filtered Center Pixel: RGB(%u, %u, %u)\n", 
+           output->pixels[center].red, output->pixels[center].green, output->pixels[center].blue);
+
+    if (res_r == 0) {
+        printf("RESULT: [PASS] Noise successfully removed by Median Filter.\n");
+    } else {
+        printf("RESULT: [FAIL] Noise still remains: %u\n", res_r);
+    }
+
+    free_image(input);
+    free_image(output);
+
+    return 0;
+}
+#else
 int main(int argc, char *argv[])
 {
     /* Check command-line arguments */
@@ -299,3 +342,4 @@ int main(int argc, char *argv[])
    free_image(out_img);
    return 0;
 }
+#endif
