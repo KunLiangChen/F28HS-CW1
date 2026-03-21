@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 /* The RGB values of a pixel.
  * As our image is HQ8, the pixel is stored by unsigne 8-bit values
  * we can use a much smaller data formatl.
@@ -18,6 +17,13 @@ struct Pixel {
     unsigned char blue;
 };
 
+typedef struct ImgNode
+{
+    struct Image *img;
+    struct Image *img_apply; //The image after operation
+    struct ImgNode *next;
+    } ImgNode;
+
 /* An image loaded from a file. */
 struct Image {
     /* TODO: Question 2 */
@@ -25,6 +31,7 @@ struct Image {
     int width;
     int nvalues;
     struct Pixel *pixels;//image matrix
+    char *output_filename; //output file name
 };
 
 /*Helper func: give head value to struct image*/
@@ -34,6 +41,7 @@ void assign_head(struct Image *img,int width, int height, int nvalues)
     img->width = width;
     img->nvalues = nvalues;
     }
+    
     
 /*Helper func: compare the uchar */
 int compare_uchar(const void *a, const void *b)
@@ -62,9 +70,9 @@ void free_image(struct Image *img)
      *  */
     free(img->pixels);
     img->pixels = NULL;
-    
     /* Free the image itself */
     free(img);
+    img = NULL;
 }
 
 /* Opens and reads an image file, returning a pointer to a new struct Image.
@@ -254,92 +262,144 @@ bool apply_NORM(struct Image *img)
     return true;
 }
 
-#if 0
-int main(int argc, char *argv[])
+/*
+ * @brief read the image sequence 
+ * @param argc is the count of the arg of main
+ * @param argv is the array contains arg of main
+ * @return a linked list of image
+ * */
+ImgNode *load_img_list(int argc, char *argv[])
 {
-    printf("Running Quick Median Test...\n");
-
-
-    struct Image *input = malloc(sizeof(struct Image));
-    input->width = 3;
-    input->height = 3;
-    input->nvalues = 3;
-    input->pixels = calloc(9, sizeof(struct Pixel)); 
-
-
-    int center = 1 * 3 + 1; 
-    input->pixels[center].red = 255;
-    input->pixels[center].green = 255;
-    input->pixels[center].blue = 255;
-
-    printf("Original Center Pixel: RGB(%u, %u, %u)\n", 
-           input->pixels[center].red, input->pixels[center].green, input->pixels[center].blue);
-
-
-    struct Image *output = apply_MEDIAN(input);
-
-
-    // 对于 3x3 窗口，排序后 0 占 8 个，255 占 1 个，中值必须是 0
-    unsigned char res_r = output->pixels[center].red;
-    printf("Filtered Center Pixel: RGB(%u, %u, %u)\n", 
-           output->pixels[center].red, output->pixels[center].green, output->pixels[center].blue);
-
-    if (res_r == 0) {
-        printf("RESULT: [PASS] Noise successfully removed by Median Filter.\n");
-    } else {
-        printf("RESULT: [FAIL] Noise still remains: %u\n", res_r);
+    ImgNode *head = malloc(sizeof(ImgNode));
+    ImgNode *current = head;
+    for(int i = 1; i<argc; i+=2)
+    {
+        struct Image *img = load_image(argv[i]);
+        if(!img) return NULL;
+        img->output_filename = argv[i+1];
+        current->next = malloc(sizeof(ImgNode));
+        current->next->img = img;
+        current = current->next;
+        }
+    current->next = NULL;
+    return head;
     }
 
-    free_image(input);
-    free_image(output);
-
-    return 0;
-}
-#else
-int main(int argc, char *argv[])
+/*
+ * process the image input in.
+ * */
+struct Image *process_img(struct Image *img)
 {
-    /* Check command-line arguments */
-    /* TODO: You may need to make changes here depending on your tasks. */
-    if (argc != 3) {
-        fprintf(stderr, "Usage: process INPUTFILE OUTPUTFILE\n");
-        return 1;
-    }
-
-    /* Load the input image */
-    struct Image *in_img = load_image(argv[1]);
-    if (in_img == NULL) {
-        return 1;
-    }
-
-
-   /* Apply the first process to the input image */
+    /* Apply the first process to the input image */
    /* TODO: Change the function name and arguments to match your task. */
-   struct Image *out_img = apply_MEDIAN(in_img);
+   struct Image *out_img = apply_MEDIAN(img);
    if (out_img == NULL) {
        fprintf(stderr, "First process failed.\n");
-       free_image(in_img);
-       return 1;
+       free_image(img);
+       return NULL;
    }
 
    /* Apply the second process to the output of the first process */
    /* TODO: Change the function name and arguments to match your task. */
    if (!apply_NORM(out_img)) {
        fprintf(stderr, "Second process failed.\n");
-       free_image(in_img);
+       free_image(img);
        free_image(out_img);
-       return 1;
+       return NULL;
    }
+   out_img->output_filename = img->output_filename;
+   return out_img;
+    }
+    
+void free_image_list(ImgNode *head)
+{
+    if(head==NULL) return;
+    ImgNode *cur = head->next;
+    while(cur!=NULL)
+    {
+        free_image(cur->img);
+        free_image(cur->img_apply);
+        free(cur);
+        cur = cur->next;
+            }
+    free(head);
+    head = NULL;
+    return;
+    }
 
-   /* Save the output image */
-   if (!save_image(out_img, argv[2])) {
-       fprintf(stderr, "Saving image to %s failed.\n", argv[2]);
-       free_image(in_img);
-       free_image(out_img);
-       return 1;
-   }
+int save_images(ImgNode *head)
+{
+    ImgNode *cur = head->next;
+    while(cur!=NULL)
+    {
+        if (!save_image(cur->img_apply, cur->img->output_filename)) {
+           fprintf(stderr, "Saving image to %s failed.\n", cur->img->output_filename);
+           free_image(cur->img);
+           free_image(cur->img_apply);
+           return -1;
+        }
+        cur = cur->next;
+        }
+    return 0;
+    }
 
-   free_image(in_img);
-   free_image(out_img);
+#if 0
+int main(int argc, char *argv[])
+{
+    ImgNode *node = load_img_list(argc, argv);
+}
+#else
+int main(int argc, char *argv[])
+{
+    /* Check command-line arguments */
+    /* TODO: You may need to make changes here depending on your tasks. */
+    if ((argc -1)%2 != 0 || argc < 3) {
+        fprintf(stderr, "Usage: process INPUTFILE OUTPUTFILE INPUTFILE OUTPUTFILE...\n");
+        return 1;
+    }
+
+    /* Load the input image */
+    //struct Image *in_img = load_image(argv[1]);
+    //if (in_img == NULL) {
+        //return 1;
+    //}
+    ImgNode *imgs = load_img_list(argc, argv);
+    for(ImgNode *cur = imgs; cur->next; cur = cur->next)
+    {
+        cur->next->img_apply = process_img(cur->next->img);
+        if(cur->next->img_apply == NULL) return 1;
+        }
+
+   ///* Apply the first process to the input image */
+   ///* TODO: Change the function name and arguments to match your task. */
+   //struct Image *out_img = apply_MEDIAN(in_img);
+   //if (out_img == NULL) {
+       //fprintf(stderr, "First process failed.\n");
+       //free_image(in_img);
+       //return 1;
+   //}
+
+   ///* Apply the second process to the output of the first process */
+   ///* TODO: Change the function name and arguments to match your task. */
+   //if (!apply_NORM(out_img)) {
+       //fprintf(stderr, "Second process failed.\n");
+       //free_image(in_img);
+       //free_image(out_img);
+       //return 1;
+   //}
+
+   ///* Save the output image */
+   //if (!save_image(out_img, argv[2])) {
+       //fprintf(stderr, "Saving image to %s failed.\n", argv[2]);
+       //free_image(in_img);
+       //free_image(out_img);
+       //return 1;
+   //}
+   
+   if(save_images(imgs)) return 1;
+   free_image_list(imgs);
+   //free_image(in_img);
+   //free_image(out_img);
    return 0;
 }
 #endif
