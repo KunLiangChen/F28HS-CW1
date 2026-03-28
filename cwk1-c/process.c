@@ -43,10 +43,18 @@ void assign_head(struct Image *img,int width, int height, int nvalues)
     }
     
     
-/*Helper func: compare the uchar */
+/*Helper func: compare the uchar 
+ * we used to use substract(Could have UDB)
+ * but write a simpler and clear way 
+ * let as to find how to finish it is much safer
+ * */
 int compare_uchar(const void *a, const void *b)
 {
-    return(*(unsigned char *)a - *(unsigned char *)b);
+    unsigned char ua = *(unsigned char *)a;
+    unsigned char ub = *(unsigned char *)b;
+    if(ua < ub) return -1;
+    if(ua > ub) return 1;
+    return 0;
     }    
 
 /*Helper func: Check whether the image valid(include Null ptr, nvalues, pixels)*/
@@ -69,10 +77,8 @@ void free_image(struct Image *img)
      * Declare as the pointer as null to avoid operate a pointer which is free.
      *  */
     free(img->pixels);
-    img->pixels = NULL;
     /* Free the image itself */
     free(img);
-    img = NULL;
 }
 
 /* Opens and reads an image file, returning a pointer to a new struct Image.
@@ -91,14 +97,20 @@ struct Image *load_image(const char *filename)
     struct Image *img = NULL;
     char image_type[4]; 
     int height, width, nvalues;
-    img = malloc(sizeof(struct Image));
+    img = calloc(1,sizeof(struct Image));
     if(img == NULL) return NULL;
-    fscanf(f, "%3s %d %d %d",image_type, &width, &height, &nvalues);
+    if(fscanf(f, "%3s %d %d %d",image_type, &width, &height, &nvalues) != 4)
+    {
+        fprintf(stderr, "File %s is an invalid image\n", filename);
+        free_image(img);
+        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+        return NULL;
+        }
     if( strcmp(image_type,"HQ8") != 0 || nvalues != 3)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
         free_image(img);
-        fclose(f);
+        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
         return NULL;
         }
     assign_head(img, width, height, nvalues);
@@ -106,7 +118,7 @@ struct Image *load_image(const char *filename)
     if(img->pixels == NULL)
     {
         free_image(img);
-        fclose(f);
+        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
         return NULL;
         }
     fgetc(f);//skip the tab
@@ -116,11 +128,11 @@ struct Image *load_image(const char *filename)
     if(fread(img->pixels,sizeof(struct Pixel),width*height,f)!=(size_t)(width*height))
     {
         fprintf(stderr,"Error: Failed to read binary image data\n");
-        fclose(f);
+        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
         free_image(img);
         }
     /* Close the file */
-    fclose(f);
+    if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
 
 
     return img;
@@ -150,7 +162,7 @@ bool save_image(const struct Image *img, const char *filename)
         fprintf(stderr,"Fail while writting the pixels, write %zu/%zu pixels\n", written, total_pixels);
         return false;       
                 }
-    fclose(f);
+    if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
     return true;
 }
 
@@ -159,7 +171,7 @@ bool save_image(const struct Image *img, const char *filename)
 struct Image *copy_image(const struct Image *source)
 {
     /* TODO: Question 3d */
-    struct Image *copy = malloc(sizeof(struct Image));
+    struct Image *copy = calloc(1,sizeof(struct Image));
     if(copy == NULL) return NULL;
     assign_head(copy, source->width, source->height, source->nvalues);
     copy->pixels = calloc(source->height * source->width, sizeof(struct Pixel));
@@ -246,7 +258,7 @@ bool apply_NORM(struct Image *img)
         }
         
     printf("Minimum value: %u\n", min);
-    printf("Maximum value:%u\n", max);
+    printf("Maximum value: %u\n", max);
     if(max == min) return true;
     
     float scale = 255.0f / (max-min);
@@ -262,6 +274,23 @@ bool apply_NORM(struct Image *img)
     return true;
 }
 
+void free_image_list(ImgNode *head)
+{
+    if(head==NULL) return;
+    ImgNode *cur = head->next;
+    while(cur!=NULL)
+    {
+        free_image(cur->img);
+        free_image(cur->img_apply);
+        ImgNode *fre = cur;
+        cur = cur->next;
+        free(fre);
+            }
+    free(head);
+    head = NULL;
+    return;
+    }
+
 /*
  * @brief read the image sequence 
  * @param argc is the count of the arg of main
@@ -271,6 +300,11 @@ bool apply_NORM(struct Image *img)
 ImgNode *load_img_list(int argc, char *argv[])
 {
     ImgNode *head = malloc(sizeof(ImgNode));
+    if(head == NULL)
+    {
+        fprintf(stderr, "Fail to initial lize image list");
+        return NULL;
+        }
     ImgNode *current = head;
     for(int i = 1; i<argc; i+=2)
     {
@@ -278,12 +312,19 @@ ImgNode *load_img_list(int argc, char *argv[])
         if(!img) return NULL;
         img->output_filename = argv[i+1];
         current->next = malloc(sizeof(ImgNode));
+        if(current->next == NULL)
+        {
+             fprintf(stderr, "Fail to alloc image");
+             free_image_list(head);
+             return NULL;
+            }
         current->next->img = img;
         current = current->next;
         }
     current->next = NULL;
     return head;
     }
+
 
 /*
  * process the image input in.
@@ -311,21 +352,7 @@ struct Image *process_img(struct Image *img)
    return out_img;
     }
     
-void free_image_list(ImgNode *head)
-{
-    if(head==NULL) return;
-    ImgNode *cur = head->next;
-    while(cur!=NULL)
-    {
-        free_image(cur->img);
-        free_image(cur->img_apply);
-        free(cur);
-        cur = cur->next;
-            }
-    free(head);
-    head = NULL;
-    return;
-    }
+
 
 int save_images(ImgNode *head)
 {
@@ -364,10 +391,16 @@ int main(int argc, char *argv[])
         //return 1;
     //}
     ImgNode *imgs = load_img_list(argc, argv);
+    if(imgs == NULL) return 1;
     for(ImgNode *cur = imgs; cur->next; cur = cur->next)
     {
         cur->next->img_apply = process_img(cur->next->img);
-        if(cur->next->img_apply == NULL) return 1;
+        if(cur->next->img_apply == NULL)
+        {
+            free_image_list(imgs);
+            return 1;
+            }
+        
         }
 
    ///* Apply the first process to the input image */
