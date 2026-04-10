@@ -127,7 +127,7 @@ struct Image *load_image(const char *filename)
         //return NULL;
         goto out;
         }
-    if( strcmp(image_type,"HQ8") != 0 || nvalues != 3)
+    if( strcmp(image_type,"HQ8") != 0 || nvalues != 3 || width<=0 || height <=0)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
         //free_image(img);

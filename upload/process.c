@@ -81,11 +81,32 @@ void free_image(struct Image *img)
     free(img);
 }
 
+/* Allocate a new struct Image and copy an existing struct Image's contents
+ * into it. On error, returns NULL. */
+struct Image *copy_image(const struct Image *source)
+{
+    /* TODO: Question 3d */
+    struct Image *copy = calloc(1,sizeof(struct Image));
+    if(copy == NULL) return NULL;
+    assign_head(copy, source->width, source->height, source->nvalues);
+    copy->pixels = calloc(source->height * source->width, sizeof(struct Pixel));
+    if(copy->pixels == NULL)
+    {
+        free_image(copy);
+        return NULL;
+        }
+    size_t total_pixels = (size_t)(source->width * source->height);
+    memcpy(copy->pixels, source->pixels, total_pixels * sizeof(struct Pixel));
+    return copy;
+}
+
 /* Opens and reads an image file, returning a pointer to a new struct Image.
  * On error, prints an error message and returns NULL. */
 struct Image *load_image(const char *filename)
 {
     /* Open the file for reading */
+    struct Image *img = NULL;
+    struct Image *result = NULL;
     FILE *f = fopen(filename, "r");
     if (f == NULL) {
         fprintf(stderr, "File %s could not be opened.\n", filename);
@@ -94,7 +115,6 @@ struct Image *load_image(const char *filename)
 
     /* Allocate the Image object, and read the image from the file */
     /* TODO: Question 3b */
-    struct Image *img = NULL;
     char image_type[4]; 
     int height, width, nvalues;
     img = calloc(1,sizeof(struct Image));
@@ -102,24 +122,27 @@ struct Image *load_image(const char *filename)
     if(fscanf(f, "%3s %d %d %d",image_type, &width, &height, &nvalues) != 4)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
-        free_image(img);
-        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
-        return NULL;
+        //free_image(img);
+        //if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+        //return NULL;
+        goto out;
         }
     if( strcmp(image_type,"HQ8") != 0 || nvalues != 3)
     {
         fprintf(stderr, "File %s is an invalid image\n", filename);
-        free_image(img);
-        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
-        return NULL;
+        //free_image(img);
+        //if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+        //return NULL;
+        goto out;
         }
     assign_head(img, width, height, nvalues);
     img->pixels = calloc(height * width, sizeof(struct Pixel)); //allocate the memory for Pixels, make sure it is allocated
     if(img->pixels == NULL)
     {
-        free_image(img);
-        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
-        return NULL;
+        //free_image(img);
+        //if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+        //return NULL;
+        goto out;
         }
     fgetc(f);//skip the tab
     /*
@@ -128,14 +151,19 @@ struct Image *load_image(const char *filename)
     if(fread(img->pixels,sizeof(struct Pixel),width*height,f)!=(size_t)(width*height))
     {
         fprintf(stderr,"Error: Failed to read binary image data\n");
-        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
-        free_image(img);
+        //if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+        //free_image(img);
+        goto out;
         }
     /* Close the file */
-    if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+    //if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
+    result = copy_image(img);
 
+    out:
+        if(img != NULL )free_image(img);
+        if(fclose(f) != 0) fprintf(stderr,"Fail to close file %s", filename);
 
-    return img;
+    return result;
 }
 
 /* Write img to file filename. Return true on success, false on error. */
@@ -166,24 +194,7 @@ bool save_image(const struct Image *img, const char *filename)
     return true;
 }
 
-/* Allocate a new struct Image and copy an existing struct Image's contents
- * into it. On error, returns NULL. */
-struct Image *copy_image(const struct Image *source)
-{
-    /* TODO: Question 3d */
-    struct Image *copy = calloc(1,sizeof(struct Image));
-    if(copy == NULL) return NULL;
-    assign_head(copy, source->width, source->height, source->nvalues);
-    copy->pixels = calloc(source->height * source->width, sizeof(struct Pixel));
-    if(copy->pixels == NULL)
-    {
-        free_image(copy);
-        return NULL;
-        }
-    size_t total_pixels = (size_t)(source->width * source->height);
-    memcpy(copy->pixels, source->pixels, total_pixels * sizeof(struct Pixel));
-    return copy;
-}
+
 
 /* Perform your first task.
  * Build a Meian window to check adjacent 9 pixels
@@ -280,8 +291,8 @@ void free_image_list(ImgNode *head)
     ImgNode *cur = head->next;
     while(cur!=NULL)
     {
-        free_image(cur->img);
-        free_image(cur->img_apply);
+        if(cur->img != NULL) free_image(cur->img);
+        if(cur->img_apply) free_image(cur->img_apply);
         ImgNode *fre = cur;
         cur = cur->next;
         free(fre);
@@ -332,25 +343,32 @@ ImgNode *load_img_list(int argc, char *argv[])
 struct Image *process_img(struct Image *img)
 {
     /* Apply the first process to the input image */
-   /* TODO: Change the function name and arguments to match your task. */
+    /* TODO: Change the function name and arguments to match your task. */
+   struct Image *result = NULL;
    struct Image *out_img = apply_MEDIAN(img);
    if (out_img == NULL) {
-       fprintf(stderr, "First process failed.\n");
-       free_image(img);
-       return NULL;
+       //fprintf(stderr, "First process failed.\n");
+       //free_image(img);
+       //return NULL;
+       goto out;
    }
 
    /* Apply the second process to the output of the first process */
    /* TODO: Change the function name and arguments to match your task. */
    if (!apply_NORM(out_img)) {
        fprintf(stderr, "Second process failed.\n");
-       free_image(img);
-       free_image(out_img);
-       return NULL;
+       //free_image(img);
+       //free_image(out_img);
+       //return NULL;
+       goto out;
    }
-   out_img->output_filename = img->output_filename;
-   return out_img;
-    }
+   
+   result = copy_image(out_img);
+   result->output_filename = img->output_filename;
+   out:
+     if(out_img !=NULL) free_image(out_img);
+   return result;
+}
     
 
 
